@@ -18,3 +18,7 @@ __init__.py
 *testDir*
 *weights*
 *warehouse*
+
+.env
+.vscode/
+workspace.code-workspace
