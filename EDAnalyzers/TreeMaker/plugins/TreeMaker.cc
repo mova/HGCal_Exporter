@@ -114,6 +114,10 @@ private:
     int maxLayer;
 
     TreeOutputInfo::TreeOutput *treeOutput;
+    void WriteParticleKinematicsToTree(
+        reco::GenParticle &part,
+        std::vector<CLHEP::HepLorentzVector> &,
+        std::vector<CLHEP::HepLorentzVector> &);
 
     // My stuff //
     bool debug;
@@ -221,6 +225,74 @@ TreeMaker::~TreeMaker()
 //
 // member functions
 //
+void TreeMaker::WriteParticleKinematicsToTree(
+    reco::GenParticle &part,
+    std::vector<CLHEP::HepLorentzVector> &v_genEl_4mom,
+    std::vector<CLHEP::HepLorentzVector> &v_genPh_4mom)
+{
+    int pdgId = part.pdgId();
+    int status = part.status();
+
+    // Check for eleectrons and (hard/promt) photons, otherwise skip
+    bool validHardEl = abs(pdgId) == 11 && ((isGunSample && status == 1) ||
+                                            (!isGunSample && part.isHardProcess()));
+    bool validHardPh = abs(pdgId) == 22 && ((isGunSample && status == 1) ||
+                                            (!isGunSample && part.isHardProcess()));
+    bool validPromtPh = abs(pdgId) == 22 && Common::isPromptPhoton(part);
+    if (!(validHardEl || validHardPh || validPromtPh))
+    {
+        return;
+    }
+
+    double &maxPt = (abs(pdgId) == 11) ? el_maxPt : ph_maxPt;
+    double &minPt = (abs(pdgId) == 11) ? el_minPt : ph_minPt;
+
+    // Check if the particle is in the HGCal, otherwise skip
+    bool ptetaCut = fabs(part.eta()) > HGCal_minEta && fabs(part.eta()) < HGCal_maxEta && part.pt() > minPt && part.pt() < maxPt;
+    if (!ptetaCut)
+    {
+        return;
+    }
+
+    printf("Gen part found: pdgId %d E %0.2f, pT %0.2f, eta %+0.2f, pz %+0.2f \n",
+           pdgId, part.energy(), part.pt(), part.eta(), part.pz());
+
+    std::vector<CLHEP::HepLorentzVector> &v_gen_4mom_ref = (abs(pdgId) == 11) ? v_genEl_4mom : v_genPh_4mom;
+
+    CLHEP::HepLorentzVector gen_4mom;
+    gen_4mom.setT(part.energy());
+    gen_4mom.setX(part.px());
+    gen_4mom.setY(part.py());
+    gen_4mom.setZ(part.pz());
+
+    v_gen_4mom_ref.push_back(gen_4mom);
+
+    //Attach the properties of the patricle to the relevant vector in the tree.
+    if ((pdgId == 11))
+    {
+        treeOutput->v_genEl_E.push_back(gen_4mom.e());
+        treeOutput->v_genEl_px.push_back(gen_4mom.px());
+        treeOutput->v_genEl_py.push_back(gen_4mom.py());
+        treeOutput->v_genEl_pz.push_back(gen_4mom.pz());
+        treeOutput->v_genEl_pT.push_back(gen_4mom.perp());
+        treeOutput->v_genEl_eta.push_back(gen_4mom.eta());
+        treeOutput->v_genEl_phi.push_back(gen_4mom.phi());
+
+        treeOutput->genEl_n++;
+    }
+    else if (pdgId == 22)
+    {
+        treeOutput->v_genPh_E.push_back(gen_4mom.e());
+        treeOutput->v_genPh_px.push_back(gen_4mom.px());
+        treeOutput->v_genPh_py.push_back(gen_4mom.py());
+        treeOutput->v_genPh_pz.push_back(gen_4mom.pz());
+        treeOutput->v_genPh_pT.push_back(gen_4mom.perp());
+        treeOutput->v_genPh_eta.push_back(gen_4mom.eta());
+        treeOutput->v_genPh_phi.push_back(gen_4mom.phi());
+
+        treeOutput->genPh_n++;
+    }
+}
 
 // ------------ method called for each event  ------------
 void TreeMaker::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup)
@@ -228,7 +300,7 @@ void TreeMaker::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup)
     using namespace edm;
 
     long long eventNumber = iEvent.id().event();
-    //printf("Event %llu \n", eventNumber);
+    printf("Event %llu \n", eventNumber);
 
     treeOutput->clear();
 
@@ -253,7 +325,7 @@ void TreeMaker::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup)
         exit(EXIT_FAILURE);
     }
 
-    const auto &topo_HGCalEE = *handle_topo_HGCalEE;
+    // const auto &topo_HGCalEE = *handle_topo_HGCalEE;
 
     //////////////////// GenEventInfoProduct ////////////////////
     edm::Handle<GenEventInfoProduct> generatorHandle;
@@ -269,150 +341,12 @@ void TreeMaker::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup)
     std::vector<CLHEP::HepLorentzVector> v_genEl_4mom;
     std::vector<CLHEP::HepLorentzVector> v_genPh_4mom;
 
-    // Iterate over the generated Particles
+    // Iterate over the generated Particles, filter for valid ones in the HGCal and write the kinematics to the tree
     for (int iPart = 0; iPart < (int)v_genParticle->size(); iPart++)
     {
         reco::GenParticle part = v_genParticle->at(iPart);
-
-        int pdgId = part.pdgId();
-        int status = part.status();
-
-        // Gen ele
-        if (
-            abs(pdgId) == 11 && ((isGunSample && status == 1) ||
-                                 (!isGunSample && part.isHardProcess())))
-        {
-            printf(
-                "[%llu] "
-                "Gen-ele found: E %0.2f, pT %0.2f, eta %+0.2f, pz %+0.2f, "
-                "\n",
-                eventNumber,
-                part.energy(), part.pt(), part.eta(), part.pz());
-
-            if (fabs(part.eta()) > HGCal_minEta && fabs(part.eta()) < HGCal_maxEta && part.pt() > el_minPt && part.pt() < el_maxPt)
-            {
-                CLHEP::HepLorentzVector genEl_4mom;
-
-                genEl_4mom.setT(part.energy());
-                genEl_4mom.setX(part.px());
-                genEl_4mom.setY(part.py());
-                genEl_4mom.setZ(part.pz());
-
-                v_genEl_4mom.push_back(genEl_4mom);
-
-                treeOutput->v_genEl_E.push_back(genEl_4mom.e());
-                treeOutput->v_genEl_px.push_back(genEl_4mom.px());
-                treeOutput->v_genEl_py.push_back(genEl_4mom.py());
-                treeOutput->v_genEl_pz.push_back(genEl_4mom.pz());
-                treeOutput->v_genEl_pT.push_back(genEl_4mom.perp());
-                treeOutput->v_genEl_eta.push_back(genEl_4mom.eta());
-                treeOutput->v_genEl_phi.push_back(genEl_4mom.phi());
-
-                treeOutput->genEl_n++;
-            }
-        }
-        //gen photons from hard processes
-        else if (
-            abs(pdgId) == 22 && ((isGunSample && status == 1) ||
-                                 (!isGunSample && part.isHardProcess())))
-        {
-            printf(
-                "[%llu] "
-                "Gen-pho found: E %0.2f, pT %0.2f, eta %+0.2f, pz %+0.2f, "
-                "\n",
-                eventNumber,
-                part.energy(), part.pt(), part.eta(), part.pz());
-
-            if (fabs(part.eta()) > HGCal_minEta && fabs(part.eta()) < HGCal_maxEta && part.pt() > ph_minPt && part.pt() < ph_maxPt)
-            {
-                CLHEP::HepLorentzVector genPh_4mom;
-
-                genPh_4mom.setT(part.energy());
-                genPh_4mom.setX(part.px());
-                genPh_4mom.setY(part.py());
-                genPh_4mom.setZ(part.pz());
-
-                v_genPh_4mom.push_back(genPh_4mom);
-
-                treeOutput->v_genPh_E.push_back(genPh_4mom.e());
-                treeOutput->v_genPh_px.push_back(genPh_4mom.px());
-                treeOutput->v_genPh_py.push_back(genPh_4mom.py());
-                treeOutput->v_genPh_pz.push_back(genPh_4mom.pz());
-                treeOutput->v_genPh_pT.push_back(genPh_4mom.perp());
-                treeOutput->v_genPh_eta.push_back(genPh_4mom.eta());
-                treeOutput->v_genPh_phi.push_back(genPh_4mom.phi());
-
-                treeOutput->genPh_n++;
-            }
-        }
-
-        else if (abs(pdgId) == 22 && Common::isPromptPhoton(part))
-        {
-            printf(
-                "[%llu] "
-                "Prompt gen-pho found: E %0.2f, pT %0.2f, eta %+0.2f, pz %+0.2f, "
-                "\n",
-                eventNumber,
-                part.energy(), part.pt(), part.eta(), part.pz());
-
-            if (fabs(part.eta()) > HGCal_minEta && fabs(part.eta()) < HGCal_maxEta && part.pt() > ph_minPt && part.pt() < ph_maxPt)
-            {
-                CLHEP::HepLorentzVector genPh_4mom;
-
-                genPh_4mom.setT(part.energy());
-                genPh_4mom.setX(part.px());
-                genPh_4mom.setY(part.py());
-                genPh_4mom.setZ(part.pz());
-
-                v_genPh_4mom.push_back(genPh_4mom);
-
-                treeOutput->v_genPh_E.push_back(genPh_4mom.e());
-                treeOutput->v_genPh_px.push_back(genPh_4mom.px());
-                treeOutput->v_genPh_py.push_back(genPh_4mom.py());
-                treeOutput->v_genPh_pz.push_back(genPh_4mom.pz());
-                treeOutput->v_genPh_pT.push_back(genPh_4mom.perp());
-                treeOutput->v_genPh_eta.push_back(genPh_4mom.eta());
-                treeOutput->v_genPh_phi.push_back(genPh_4mom.phi());
-
-                treeOutput->genPh_n++;
-            }
-        }
+        WriteParticleKinematicsToTree(part, v_genEl_4mom, v_genPh_4mom);
     }
-
-    //// Sort the electrons
-    //std::sort(
-    //    treeOutput->v_genEl_HGCalEEP_EsortedIndex.begin(), treeOutput->v_genEl_HGCalEEP_EsortedIndex.end(),
-    //    [&](int iEle1, int iEle2)
-    //    {
-    //        return (treeOutput->v_genEl_E[iEle1] > treeOutput->v_genEl_E[iEle2]);
-    //    }
-    //);
-    //
-    //std::sort(
-    //    treeOutput->v_genEl_HGCalEEM_EsortedIndex.begin(), treeOutput->v_genEl_HGCalEEM_EsortedIndex.end(),
-    //    [&](int iEle1, int iEle2)
-    //    {
-    //        return (treeOutput->v_genEl_E[iEle1] > treeOutput->v_genEl_E[iEle2]);
-    //    }
-    //);
-    //
-    //
-    //// Sort the photons
-    //std::sort(
-    //    treeOutput->v_genPh_HGCalEEP_EsortedIndex.begin(), treeOutput->v_genPh_HGCalEEP_EsortedIndex.end(),
-    //    [&](int iEle1, int iEle2)
-    //    {
-    //        return (treeOutput->v_genPh_E[iEle1] > treeOutput->v_genPh_E[iEle2]);
-    //    }
-    //);
-    //
-    //std::sort(
-    //    treeOutput->v_genPh_HGCalEEM_EsortedIndex.begin(), treeOutput->v_genPh_HGCalEEM_EsortedIndex.end(),
-    //    [&](int iEle1, int iEle2)
-    //    {
-    //        return (treeOutput->v_genPh_E[iEle1] > treeOutput->v_genPh_E[iEle2]);
-    //    }
-    //);
 
     // Pileup
     edm::Handle<std::vector<PileupSummaryInfo>> pileUps_reco;
@@ -433,7 +367,6 @@ void TreeMaker::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup)
     std::map<DetId, const PCaloHit *> m_simHit;
 
     int nSimHit = v_HGCEESimHit->size();
-
     for (int iSimHit = 0; iSimHit < nSimHit; iSimHit++)
     {
         const PCaloHit *simHit = &(v_HGCEESimHit->at(iSimHit));
