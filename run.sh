@@ -9,4 +9,4 @@ cmsRun EDAnalyzers/TreeMaker/python/ConfFile_cfg.py \
     storeSimHit=1 \
     storeRecHit=1 \
     debugFile=0 \
-    maxEvents=1 \
+   # maxEvents=4 \

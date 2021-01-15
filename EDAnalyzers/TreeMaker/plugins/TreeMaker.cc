@@ -114,12 +114,14 @@ private:
     int maxLayer;
 
     TreeOutputInfo::TreeOutput *treeOutput;
+    // My stuff //
     void WriteParticleKinematicsToTree(
         reco::GenParticle &part,
         std::vector<CLHEP::HepLorentzVector> &,
         std::vector<CLHEP::HepLorentzVector> &);
-
-    // My stuff //
+    void populateMaps(
+        edm::Handle<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>> &v_hits,
+        std::vector<DetId> &v_caloHitId);
     bool debug;
     bool isGunSample;
 
@@ -138,20 +140,16 @@ private:
     // Rho //
     edm::EDGetTokenT<double> tok_rho;
 
-    // SimHits //
-    edm::EDGetTokenT<std::vector<PCaloHit>> tok_HGCEESimHit;
-
-    // SimClusters //
-    edm::EDGetTokenT<std::vector<SimCluster>> tok_simCluster;
-
     // RecHits //
-    edm::EDGetTokenT<std::vector<reco::PFRecHit>> tok_PFRecHit;
+    //Declare a mapping from the id to the hit
+    std::map<DetId, const HGCRecHit *> m_recHit;
+    // edm::EDGetTokenT<std::vector<reco::PFRecHit>> tok_PFRecHit;
     edm::EDGetTokenT<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>> tok_HGCEERecHit;
     edm::EDGetTokenT<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>> tok_HGCHEFRecHit;
     edm::EDGetTokenT<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>> tok_HGCHEBRecHit;
 
     // Calo particles //
-    edm::EDGetTokenT<std::vector<CaloParticle>> tok_caloParticle;
+    // edm::EDGetTokenT<std::vector<CaloParticle>> tok_caloParticle;
 };
 
 //
@@ -198,21 +196,11 @@ TreeMaker::TreeMaker(const edm::ParameterSet &iConfig)
     // Rho //
     tok_rho = consumes<double>(iConfig.getParameter<edm::InputTag>("label_rho"));
 
-    // SimHits //
-    tok_HGCEESimHit = consumes<std::vector<PCaloHit>>(iConfig.getParameter<edm::InputTag>("label_HGCEESimHit"));
-
     // RecHits //
-    tok_PFRecHit = consumes<std::vector<reco::PFRecHit>>(iConfig.getParameter<edm::InputTag>("label_PFRecHit"));
 
     tok_HGCEERecHit = consumes<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>>(iConfig.getParameter<edm::InputTag>("label_HGCEERecHit"));
     tok_HGCHEFRecHit = consumes<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>>(iConfig.getParameter<edm::InputTag>("label_HGCHEFRecHit"));
     tok_HGCHEBRecHit = consumes<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>>(iConfig.getParameter<edm::InputTag>("label_HGCHEBRecHit"));
-
-    // SimClusters //
-    tok_simCluster = consumes<std::vector<SimCluster>>(iConfig.getParameter<edm::InputTag>("label_simCluster"));
-
-    // Calo particles //
-    tok_caloParticle = consumes<std::vector<CaloParticle>>(iConfig.getParameter<edm::InputTag>("label_caloParticle"));
 }
 
 TreeMaker::~TreeMaker()
@@ -294,6 +282,20 @@ void TreeMaker::WriteParticleKinematicsToTree(
     }
 }
 
+void TreeMaker::populateMaps(
+    edm::Handle<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>> &v_hits,
+    std::vector<DetId> &v_caloHitId)
+{
+    int nHits = v_hits->size();
+    for (int iRecHit = 0; iRecHit < nHits; iRecHit++)
+    {
+        const HGCRecHit *recHit = &(*v_hits)[iRecHit];
+
+        m_recHit[recHit->id()] = recHit;
+        v_caloHitId.push_back(recHit->id());
+    }
+    return;
+}
 // ------------ method called for each event  ------------
 void TreeMaker::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup)
 {
@@ -360,264 +362,51 @@ void TreeMaker::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup)
 
     treeOutput->rho = rho;
 
-    // SimHit dictionary
-    edm::Handle<std::vector<PCaloHit>> v_HGCEESimHit;
-    iEvent.getByToken(tok_HGCEESimHit, v_HGCEESimHit);
-
-    std::map<DetId, const PCaloHit *> m_simHit;
-
-    int nSimHit = v_HGCEESimHit->size();
-    for (int iSimHit = 0; iSimHit < nSimHit; iSimHit++)
-    {
-        const PCaloHit *simHit = &(v_HGCEESimHit->at(iSimHit));
-
-        DetId detId(simHit->id());
-
-        m_simHit[detId] = simHit;
-    }
-
-    // RecHit dictionary
+    //////Reconstructed Hits
+    //Declare the RecHit vectors for EE, HEF, HEB
     edm::Handle<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>> v_HGCEERecHit;
-    iEvent.getByToken(tok_HGCEERecHit, v_HGCEERecHit);
-
     edm::Handle<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>> v_HGCHEFRecHit;
-    iEvent.getByToken(tok_HGCHEFRecHit, v_HGCHEFRecHit);
-
     edm::Handle<edm::SortedCollection<HGCRecHit, edm::StrictWeakOrdering<HGCRecHit>>> v_HGCHEBRecHit;
+    //Load them from the tokens
+    iEvent.getByToken(tok_HGCEERecHit, v_HGCEERecHit);
+    iEvent.getByToken(tok_HGCHEFRecHit, v_HGCHEFRecHit);
     iEvent.getByToken(tok_HGCHEBRecHit, v_HGCHEBRecHit);
 
-    std::map<DetId, const HGCRecHit *> m_recHit;
-    std::map<DetId, const HGCRecHit *> m_HGCEERecHit;
+    //'Calnumber' -> List of hits by DetId
+    std::map<int, std::vector<DetId>> m_RecoHitsByCalo;
+    //EE = HGCalEE = 8, Electromagnetic Endcap (EE), a tungsten/copper-silicon sampling electromagnetic calorimeter with a depth of about 26 X0 and 1.5λ
+    //HEF = HGCalHSi = 9,Forward Hadronic (HEF or FH), a stainless-steel-silicon hadron calorimeter 3.5λ deep
+    //HEB HGCalHSc = 10, Backing Hadronic (HEB or BH), a 5λ stainless-steel-scintillator sampling backing calorimeter
+    //HGCalTrigger = 11
+    
+    //Create instances of the vector
+    m_RecoHitsByCalo[8];
+    m_RecoHitsByCalo[9];
+    m_RecoHitsByCalo[10];
 
-    int nHGCEERecHit = v_HGCEERecHit->size();
-
-    for (int iRecHit = 0; iRecHit < nHGCEERecHit; iRecHit++)
-    {
-        const HGCRecHit *recHit = &(*v_HGCEERecHit)[iRecHit];
-
-        m_recHit[recHit->id()] = recHit;
-        m_HGCEERecHit[recHit->id()] = recHit;
-    }
-
-    //
-    int nHGCHEFRecHit = v_HGCHEFRecHit->size();
-
-    for (int iRecHit = 0; iRecHit < nHGCHEFRecHit; iRecHit++)
-    {
-        const HGCRecHit *recHit = &(*v_HGCHEFRecHit)[iRecHit];
-
-        m_recHit[recHit->id()] = recHit;
-    }
-
-    //
-    int nHGCHEBRecHit = v_HGCHEBRecHit->size();
-
-    for (int iRecHit = 0; iRecHit < nHGCHEBRecHit; iRecHit++)
-    {
-        const HGCRecHit *recHit = &(*v_HGCHEBRecHit)[iRecHit];
-
-        m_recHit[recHit->id()] = recHit;
-    }
-
-    // Sim clusters
-    edm::Handle<std::vector<SimCluster>> h_simCluster;
-    iEvent.getByToken(tok_simCluster, h_simCluster);
-    const std::vector<SimCluster> &v_simCluster = *h_simCluster;
-
-    // <DetId, SimCluster index>
-    std::map<DetId, int> m_simClusterHit;
-
-    int iSimClus = 0;
-
-    for (auto const &simClus : v_simCluster)
-    {
-        auto v_hnf = simClus.hits_and_fractions();
-
-        for (auto &hnf : v_hnf)
-        {
-            DetId detId(hnf.first);
-
-            m_simClusterHit[detId] = iSimClus;
-        }
-
-        iSimClus++;
-    }
-
-    // Calo particles
-    edm::Handle<std::vector<CaloParticle>> v_caloParticle;
-    iEvent.getByToken(tok_caloParticle, v_caloParticle);
-
-    // <DetId, CaloParticle index>
-    std::map<DetId, int> m_caloPart_simClustHit;
-
-    int nCaloPart = v_caloParticle->size();
-
-    for (int iCaloPart = 0; iCaloPart < nCaloPart; iCaloPart++)
-    {
-        CaloParticle caloPart = v_caloParticle->at(iCaloPart);
-
-        treeOutput->v_caloParticle_E.push_back(caloPart.energy());
-        treeOutput->v_caloParticle_px.push_back(caloPart.px());
-        treeOutput->v_caloParticle_py.push_back(caloPart.py());
-        treeOutput->v_caloParticle_pz.push_back(caloPart.pz());
-
-        treeOutput->v_caloParticle_pT.push_back(caloPart.pt());
-        treeOutput->v_caloParticle_eta.push_back(caloPart.eta());
-        treeOutput->v_caloParticle_phi.push_back(caloPart.phi());
-
-        treeOutput->v_caloParticle_pdgid.push_back(caloPart.pdgId());
-
-        treeOutput->caloParticle_n++;
-
-        //auto v_simCluster = caloPart.simClusters().refVector();
-
-        //int nSimCluster = v_simCluster.size();
-
-        int iSimCluster = 0;
-
-        //for(int iSimCluster = 0; iSimCluster < nSimCluster; iSimCluster++)
-        for (auto const &simCluster : caloPart.simClusters())
-        {
-            //SimCluster simCluster = v_simCluster.at(iSimCluster);
-
-            std::vector<std::pair<uint32_t, float>> v_hit = simCluster.get()->hits_and_fractions();
-
-            //printf(
-            //    "[%llu] "
-            //    "CaloParticle %d/%d: "
-            //    "SimCluster %d/%d: "
-            //    "nSimHit %d "
-            //    "nHGCEERecHit %d "
-            //    "h&f size %d "
-            //    "\n",
-            //    eventNumber,
-            //    iCaloPart+1, nCaloPart,
-            //    iSimCluster+1, (int) caloPart.simClusters().size(),
-            //    simCluster.get()->numberOfSimHits(),
-            //    simCluster.get()->numberOfRecHits(),
-            //    (int) v_hit.size()
-            //);
-
-            int nHit = v_hit.size();
-
-            for (int iHit = 0; iHit < nHit; iHit++)
-            {
-                DetId detId(v_hit.at(iHit).first);
-
-                m_caloPart_simClustHit[detId] = iCaloPart;
-            }
-
-            iSimCluster++;
-        }
-    }
-
-    // SimHits
-    if (storeSimHit)
-    {
-        for (int iSimHit = 0; iSimHit < nSimHit; iSimHit++)
-        {
-            auto simHit = v_HGCEESimHit->at(iSimHit);
-
-            DetId detId(simHit.id());
-
-            int layer = recHitTools.getLayer(simHit.id()) - 1; // Start from 0
-            int zside = recHitTools.zside(simHit.id());
-
-            auto position = recHitTools.getPosition(simHit.id());
-
-            //CLHEP::Hep3Vector recHit_3vec(position.x(), position.y(), position.z());
-            //
-            //printf(
-            //    "[%llu] "
-            //    "SimHit %d/%d: "
-            //    "layer %d, "
-            //    "E %0.2e, "
-            //    "ET %0.2e (%0.2e), "
-            //    "x %0.2f, y %0.2f, z %0.2f,"
-            //    "\n",
-            //    eventNumber,
-            //    iSimHit+1, nSimHit,
-            //    layer,
-            //    simHit.energy(),
-            //    recHitTools.getPt(position, simHit.energy()), simHit.energy()*sin(recHit_3vec.theta()),
-            //    position.x(), position.y(), position.z()
-            //);
-
-            //if(detId.layer() < minLayer)
-            //{
-            //    minLayer = detId.layer();
-            //}
-            //
-            //if(detId.layer() > maxLayer)
-            //{
-            //    maxLayer = detId.layer();
-            //}
-
-            bool isCaloParticleMatched = (m_caloPart_simClustHit.find(detId) != m_caloPart_simClustHit.end());
-
-            treeOutput->v_simHit_E.push_back(simHit.energy());
-
-            treeOutput->v_simHit_x.push_back(position.x());
-            treeOutput->v_simHit_y.push_back(position.y());
-            treeOutput->v_simHit_z.push_back(position.z());
-
-            treeOutput->v_simHit_eta.push_back(position.eta());
-            treeOutput->v_simHit_phi.push_back(position.phi());
-
-            treeOutput->v_simHit_ET.push_back(recHitTools.getPt(position, simHit.energy()));
-
-            treeOutput->v_simHit_layer.push_back(layer + 1);
-            treeOutput->v_simHit_zside.push_back(zside);
-            treeOutput->v_simHit_isCaloParticleMatched.push_back(isCaloParticleMatched);
-
-            int matchedSimClusIdx = (m_simClusterHit.find(detId) != m_simClusterHit.end()) ? m_simClusterHit[detId] : -1;
-            treeOutput->v_simHit_matchedSimClusIndex.push_back(matchedSimClusIdx);
-
-            treeOutput->simHit_n++;
-        }
-    }
+    populateMaps(v_HGCEERecHit, m_RecoHitsByCalo.at(8));
+    populateMaps(v_HGCHEFRecHit, m_RecoHitsByCalo.at(9));
+    populateMaps(v_HGCHEBRecHit, m_RecoHitsByCalo.at(10));
 
     // RecHits
     if (storeRecHit)
     {
-        std::vector<int> v_recHit_matchedSimHitIndex = Common::associateRecToSimHit(v_HGCEESimHit, v_HGCEERecHit);
+        // std::vector<int> v_recHit_matchedSimHitIndex = Common::associateRecToSimHit(v_HGCEESimHit, v_HGCEERecHit);
 
-        nHGCEERecHit = v_HGCEERecHit->size();
-
-        for (int iRecHit = 0; iRecHit < nHGCEERecHit; iRecHit++)
+        for (int iRecHit = 0; iRecHit < int(v_HGCEERecHit->size()); iRecHit++)
         {
             auto recHit = (*v_HGCEERecHit)[iRecHit];
 
             int layer = recHitTools.getLayer(recHit.id()) - 1; // Start from 0
+            treeOutput->v_recHit_layer.push_back(layer);
+
             int zside = recHitTools.zside(recHit.id());
+            treeOutput->v_recHit_zside.push_back(zside);
+
+            int detector = recHit.id().det();
+            treeOutput->v_recHit_detector.push_back(detector);
 
             auto position = recHitTools.getPosition(recHit.id());
-
-            //CLHEP::Hep3Vector recHit_3vec(position.x(), position.y(), position.z());
-            //
-            //printf(
-            //    "[%llu] "
-            //    "RecHit %d/%d: "
-            //    "layer %d "
-            //    "E %0.2f "
-            //    "\n",
-            //    eventNumber,
-            //    iRecHit+1, nHGCEERecHit,
-            //    layer,
-            //    recHit.energy()
-            //);
-
-            //if(detId.layer() < minLayer)
-            //{
-            //    minLayer = detId.layer();
-            //}
-            //
-            //if(detId.layer() > maxLayer)
-            //{
-            //    maxLayer = detId.layer();
-            //}
-
-            bool isCaloParticleMatched = (m_caloPart_simClustHit.find(recHit.id()) != m_caloPart_simClustHit.end());
 
             treeOutput->v_recHit_E.push_back(recHit.energy());
 
@@ -628,17 +417,18 @@ void TreeMaker::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup)
             treeOutput->v_recHit_eta.push_back(position.eta());
             treeOutput->v_recHit_phi.push_back(position.phi());
 
-            treeOutput->v_recHit_ET.push_back(recHitTools.getPt(position, recHit.energy()));
+            
+            
 
-            treeOutput->v_recHit_layer.push_back(layer + 1);
-            treeOutput->v_recHit_zside.push_back(zside);
+            // treeOutput->v_recHit_ET.push_back(recHitTools.getPt(position, recHit.energy()));
+            // bool isCaloParticleMatched = (m_caloPart_simClustHit.find(recHit.id()) != m_caloPart_simClustHit.end());
 
-            treeOutput->v_recHit_isCaloParticleMatched.push_back(isCaloParticleMatched);
+            // treeOutput->v_recHit_isCaloParticleMatched.push_back(isCaloParticleMatched);
 
-            treeOutput->v_recHit_matchedSimHitIndex.push_back(v_recHit_matchedSimHitIndex.at(iRecHit));
+            // treeOutput->v_recHit_matchedSimHitIndex.push_back(v_recHit_matchedSimHitIndex.at(iRecHit));
 
-            int matchedSimClusIdx = (m_simClusterHit.find(recHit.id()) != m_simClusterHit.end()) ? m_simClusterHit[recHit.id()] : -1;
-            treeOutput->v_recHit_matchedSimClusIndex.push_back(matchedSimClusIdx);
+            // int matchedSimClusIdx = (m_simClusterHit.find(recHit.id()) != m_simClusterHit.end()) ? m_simClusterHit[recHit.id()] : -1;
+            // treeOutput->v_recHit_matchedSimClusIndex.push_back(matchedSimClusIdx);
 
             //HGCalTopology::DecodedDetId decodetDetId = topo_HGCalEE.decode(recHit.id());
             //
@@ -646,77 +436,16 @@ void TreeMaker::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup)
             //treeOutput->v_recHit_iCell1.push_back(decodetDetId.iCell1);
             //treeOutput->v_recHit_iCell2.push_back(decodetDetId.iCell2);
 
-            treeOutput->v_recHit_SiThickness.push_back(recHitTools.getSiThickness(recHit.id()));
+            // treeOutput->v_recHit_SiThickness.push_back(recHitTools.getSiThickness(recHit.id()));
 
             treeOutput->recHit_n++;
         }
     }
 
-    // PFRecHits
-    //edm::Handle <std::vector <reco::PFRecHit> > v_PFRecHit;
-    //iEvent.getByToken(tok_PFRecHit, v_PFRecHit);
-    //
-    //int nPFRecHit = v_PFRecHit->size();
-    ////printf("[%llu] # of PFRecHits: %d \n", eventNumber, nPFRecHit);
-    //
-    //for(int iPFRecHit = 0; iPFRecHit < nPFRecHit; iPFRecHit++)
-    //{
-    //    auto recHit = v_PFRecHit->at(iPFRecHit);
-    //
-    //    //HGCEEDetId detId(recHit.id());
-    //    HGCalDetId detId(recHit.detId());
-    //
-    //    // int layer = detId.layer();
-    //    int layer = recHitTools.getLayer(recHit.detId()) - 1; // Start from 0
-    //
-    //    //int zside = detId.zside();
-    //    int zside = recHitTools.zside(recHit.detId());
-    //
-    //    printf(
-    //        "[%llu] "
-    //        "RecHit %d/%d: "
-    //        "layer %d (%d), "
-    //        "zside %+d, "
-    //        "E %0.2f, "
-    //        "\n",
-    //        eventNumber,
-    //        iPFRecHit+1, nPFRecHit,
-    //        detId.layer(), recHit.layer(),
-    //        zside,
-    //        recHit.energy()
-    //    );
-    //
-    //    //if(detId.layer() < minLayer)
-    //    //{
-    //    //    minLayer = detId.layer();
-    //    //}
-    //    //
-    //    //if(detId.layer() > maxLayer)
-    //    //{
-    //    //    maxLayer = detId.layer();
-    //    //}
-    //
-    //    //if(zside > 0)
-    //    //{
-    //    //    treeOutput->v_recHit_HGCalEEPlayer_totE.at(layer) += recHit.energy();
-    //    //}
-    //    //
-    //    //else
-    //    //{
-    //    //    treeOutput->v_recHit_HGCalEEMlayer_totE.at(layer) += recHit.energy();
-    //    //}
-    //}
-
     // Fill tree
     treeOutput->fill();
 
-    //#ifdef THIS_IS_AN_EVENTSETUP_EXAMPLE
-    //ESHandle<SetupData> pSetup;
-    //iSetup.get<SetupRecord>().get(pSetup);
-    //#endif
-
     printf("\n\n");
-
     fflush(stdout);
     fflush(stderr);
 }

@@ -47,9 +47,6 @@ namespace TreeOutputInfo
         std::vector <float> v_genEl_eta;
         std::vector <float> v_genEl_phi;
         
-        std::vector <float> v_genEl_HGCalEEP_EsortedIndex;
-        std::vector <float> v_genEl_HGCalEEM_EsortedIndex;
-        
         
         // Gen photon //
         int genPh_n;
@@ -60,9 +57,6 @@ namespace TreeOutputInfo
         std::vector <float> v_genPh_pT;
         std::vector <float> v_genPh_eta;
         std::vector <float> v_genPh_phi;
-        
-        std::vector <float> v_genPh_HGCalEEP_EsortedIndex;
-        std::vector <float> v_genPh_HGCalEEM_EsortedIndex;
         
         
         // Pileup //
@@ -97,6 +91,8 @@ namespace TreeOutputInfo
         std::vector <float> v_recHit_ET;
         std::vector <float> v_recHit_layer;
         std::vector <float> v_recHit_zside;
+        std::vector <float> v_recHit_detector;
+        
         std::vector <float> v_recHit_matchedSimHitIndex;
         std::vector <float> v_recHit_matchedSimClusIndex;
         std::vector <float> v_recHit_isCaloParticleMatched;
@@ -162,12 +158,6 @@ namespace TreeOutputInfo
             sprintf(name, "genEl_phi");
             tree->Branch(name, &v_genEl_phi);
             
-            sprintf(name, "genEl_HGCalEEP_EsortedIndex");
-            tree->Branch(name, &v_genEl_HGCalEEP_EsortedIndex);
-            
-            sprintf(name, "genEl_HGCalEEM_EsortedIndex");
-            tree->Branch(name, &v_genEl_HGCalEEM_EsortedIndex);
-            
             
             // Gen photon //
             sprintf(name, "genPh_n");
@@ -192,14 +182,7 @@ namespace TreeOutputInfo
             tree->Branch(name, &v_genPh_eta);
             
             sprintf(name, "genPh_phi");
-            tree->Branch(name, &v_genPh_phi);
-            
-            sprintf(name, "genPh_HGCalEEP_EsortedIndex");
-            tree->Branch(name, &v_genPh_HGCalEEP_EsortedIndex);
-            
-            sprintf(name, "genPh_HGCalEEM_EsortedIndex");
-            tree->Branch(name, &v_genPh_HGCalEEM_EsortedIndex);
-            
+            tree->Branch(name, &v_genPh_phi);        
             
             // Pileup //
             sprintf(name, "pileup_n");
@@ -211,42 +194,42 @@ namespace TreeOutputInfo
             tree->Branch(name, &rho);
             
             
-            // Sim-hit //
-            sprintf(name, "simHit_n");
-            tree->Branch(name, &simHit_n);
+            // // Sim-hit //
+            // sprintf(name, "simHit_n");
+            // tree->Branch(name, &simHit_n);
             
-            sprintf(name, "simHit_E");
-            tree->Branch(name, &v_simHit_E);
+            // sprintf(name, "simHit_E");
+            // tree->Branch(name, &v_simHit_E);
             
-            sprintf(name, "simHit_x");
-            tree->Branch(name, &v_simHit_x);
+            // sprintf(name, "simHit_x");
+            // tree->Branch(name, &v_simHit_x);
             
-            sprintf(name, "simHit_y");
-            tree->Branch(name, &v_simHit_y);
+            // sprintf(name, "simHit_y");
+            // tree->Branch(name, &v_simHit_y);
             
-            sprintf(name, "simHit_z");
-            tree->Branch(name, &v_simHit_z);
+            // sprintf(name, "simHit_z");
+            // tree->Branch(name, &v_simHit_z);
             
-            sprintf(name, "simHit_eta");
-            tree->Branch(name, &v_simHit_eta);
+            // sprintf(name, "simHit_eta");
+            // tree->Branch(name, &v_simHit_eta);
             
-            sprintf(name, "simHit_phi");
-            tree->Branch(name, &v_simHit_phi);
+            // sprintf(name, "simHit_phi");
+            // tree->Branch(name, &v_simHit_phi);
             
-            sprintf(name, "simHit_ET");
-            tree->Branch(name, &v_simHit_ET);
+            // sprintf(name, "simHit_ET");
+            // tree->Branch(name, &v_simHit_ET);
             
-            sprintf(name, "simHit_layer");
-            tree->Branch(name, &v_simHit_layer);
+            // sprintf(name, "simHit_layer");
+            // tree->Branch(name, &v_simHit_layer);
             
-            sprintf(name, "simHit_zside");
-            tree->Branch(name, &v_simHit_zside);
+            // sprintf(name, "simHit_zside");
+            // tree->Branch(name, &v_simHit_zside);
             
-            sprintf(name, "simHit_isCaloParticleMatched");
-            tree->Branch(name, &v_simHit_isCaloParticleMatched);
+            // sprintf(name, "simHit_isCaloParticleMatched");
+            // tree->Branch(name, &v_simHit_isCaloParticleMatched);
             
-            sprintf(name, "simHit_matchedSimClusIndex");
-            tree->Branch(name, &v_simHit_matchedSimClusIndex);
+            // sprintf(name, "simHit_matchedSimClusIndex");
+            // tree->Branch(name, &v_simHit_matchedSimClusIndex);
             
             
             // Rec-hit //
@@ -271,65 +254,68 @@ namespace TreeOutputInfo
             sprintf(name, "recHit_phi");
             tree->Branch(name, &v_recHit_phi);
             
-            sprintf(name, "recHit_ET");
-            tree->Branch(name, &v_recHit_ET);
+            // sprintf(name, "recHit_ET");
+            // tree->Branch(name, &v_recHit_ET);
             
             sprintf(name, "recHit_layer");
             tree->Branch(name, &v_recHit_layer);
             
             sprintf(name, "recHit_zside");
             tree->Branch(name, &v_recHit_zside);
+
+            sprintf(name, "recHit_detector");
+            tree->Branch(name, &v_recHit_detector);
             
-            sprintf(name, "recHit_matchedSimHitIndex");
-            tree->Branch(name, &v_recHit_matchedSimHitIndex);
+            // sprintf(name, "recHit_matchedSimHitIndex");
+            // tree->Branch(name, &v_recHit_matchedSimHitIndex);
             
-            sprintf(name, "recHit_matchedSimClusIndex");
-            tree->Branch(name, &v_recHit_matchedSimClusIndex);
+            // sprintf(name, "recHit_matchedSimClusIndex");
+            // tree->Branch(name, &v_recHit_matchedSimClusIndex);
             
-            sprintf(name, "recHit_isCaloParticleMatched");
-            tree->Branch(name, &v_recHit_isCaloParticleMatched);
+            // sprintf(name, "recHit_isCaloParticleMatched");
+            // tree->Branch(name, &v_recHit_isCaloParticleMatched);
             
-            sprintf(name, "recHit_iType");
-            tree->Branch(name, &v_recHit_iType);
+            // sprintf(name, "recHit_iType");
+            // tree->Branch(name, &v_recHit_iType);
             
-            sprintf(name, "recHit_iCell1");
-            tree->Branch(name, &v_recHit_iCell1);
+            // sprintf(name, "recHit_iCell1");
+            // tree->Branch(name, &v_recHit_iCell1);
             
-            sprintf(name, "recHit_iCell2");
-            tree->Branch(name, &v_recHit_iCell2);
+            // sprintf(name, "recHit_iCell2");
+            // tree->Branch(name, &v_recHit_iCell2);
             
-            sprintf(name, "recHit_SiThickness");
-            tree->Branch(name, &v_recHit_SiThickness);
+            // sprintf(name, "recHit_SiThickness");
+            // tree->Branch(name, &v_recHit_SiThickness);
             
             
             
-            // Calo-particle //
-            sprintf(name, "caloParticle_n");
-            tree->Branch(name, &caloParticle_n);
+            // // Calo-particle //
+            // sprintf(name, "caloParticle_n");
+            // tree->Branch(name, &caloParticle_n);
             
-            sprintf(name, "caloParticle_E");
-            tree->Branch(name, &v_caloParticle_E);
+            // sprintf(name, "caloParticle_E");
+            // tree->Branch(name, &v_caloParticle_E);
             
-            sprintf(name, "caloParticle_px");
-            tree->Branch(name, &v_caloParticle_px);
+            // sprintf(name, "caloParticle_px");
+            // tree->Branch(name, &v_caloParticle_px);
             
-            sprintf(name, "caloParticle_py");
-            tree->Branch(name, &v_caloParticle_py);
+            // sprintf(name, "caloParticle_py");
+            // tree->Branch(name, &v_caloParticle_py);
             
-            sprintf(name, "caloParticle_pz");
-            tree->Branch(name, &v_caloParticle_pz);
+            // sprintf(name, "caloParticle_pz");
+            // tree->Branch(name, &v_caloParticle_pz);
             
-            sprintf(name, "caloParticle_pT");
-            tree->Branch(name, &v_caloParticle_pT);
+            // sprintf(name, "caloParticle_pT");
+            // tree->Branch(name, &v_caloParticle_pT);
             
-            sprintf(name, "caloParticle_eta");
-            tree->Branch(name, &v_caloParticle_eta);
+            // sprintf(name, "caloParticle_eta");
+            // tree->Branch(name, &v_caloParticle_eta);
             
-            sprintf(name, "caloParticle_phi");
-            tree->Branch(name, &v_caloParticle_phi);
+            // sprintf(name, "caloParticle_phi");
+            // tree->Branch(name, &v_caloParticle_phi);
             
-            sprintf(name, "caloParticle_pdgid");
-            tree->Branch(name, &v_caloParticle_pdgid);
+            // sprintf(name, "caloParticle_pdgid");
+            // tree->Branch(name, &v_caloParticle_pdgid);
         }
         
         
@@ -351,9 +337,6 @@ namespace TreeOutputInfo
             v_genEl_eta.clear();
             v_genEl_phi.clear();
             
-            v_genEl_HGCalEEP_EsortedIndex.clear();
-            v_genEl_HGCalEEM_EsortedIndex.clear();
-            
             
             // Gen photon //
             genPh_n = 0;
@@ -364,9 +347,7 @@ namespace TreeOutputInfo
             v_genPh_pT.clear();
             v_genPh_eta.clear();
             v_genPh_phi.clear();
-            
-            v_genPh_HGCalEEP_EsortedIndex.clear();
-            v_genPh_HGCalEEM_EsortedIndex.clear();
+        
             
             
             // Pileup //
@@ -409,6 +390,7 @@ namespace TreeOutputInfo
             v_recHit_iType.clear();
             v_recHit_iCell1.clear();
             v_recHit_iCell2.clear();
+            v_recHit_detector.clear();
             
             v_recHit_SiThickness.clear();
             
